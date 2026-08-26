@@ -24,15 +24,18 @@ import axios from 'axios';
 
 // Automatically use Render backend in production, or fallback to local if developing locally
 const getBaseUrl = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+  let url = import.meta.env.VITE_API_URL;
+  
+  if (!url) {
+    if (import.meta.env.PROD) {
+      url = 'https://metros-pos.onrender.com';
+    } else {
+      url = 'http://localhost:5000';
+    }
   }
-  // Fallback for production builds if env var is missing on Vercel
-  if (import.meta.env.PROD) {
-    return 'https://metros-pos.onrender.com/api';
-  }
-  // Default for local development
-  return 'http://localhost:5000/api';
+
+  // Ensure it always ends with /api cleanly without duplicating
+  return url.endsWith('/api') ? url : `${url.endsWith('/') ? url.slice(0, -1) : url}/api`;
 };
 
 export const apiClient = axios.create({
