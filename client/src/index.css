@@ -1,0 +1,33 @@
+@import "tailwindcss";
+/* client/src/index.css */
+
+@media print {
+  /* Hide all elements on the page by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Make only the thermal receipt wrapper and its children visible */
+  #thermal-receipt-print-area, 
+  #thermal-receipt-print-area * {
+    visibility: visible;
+  }
+
+  /* Position the thermal receipt precisely at the top-left of the print sheet */
+  #thermal-receipt-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm; /* Standard Ethiopian POS thermal receipt roll width */
+    margin: 0;
+    padding: 5mm;
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide elements explicitly marked with .no-print */
+  .no-print {
+    display: none !important;
+  }
+}
