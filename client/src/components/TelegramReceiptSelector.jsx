@@ -10,9 +10,8 @@
 //   const fetchRecentChats = async () => {
 //     try {
 //       setLoading(true);
-//       // Directly hit port 5000 to guarantee it reaches your Express server cleanly
-//     //   const res = await axios.get('http://localhost:5000/telegram/recent-chats');
-//     const res = await axios.get('http://localhost:5000/api/telegram/recent-chats');
+//       // Direct call to port 5000 to fetch active chat sessions
+//       const res = await axios.get('http://localhost:5000/api/telegram/recent-chats');
 //       setChats(res.data.chats || []);
 //     } catch (err) {
 //       console.error('Failed to fetch Telegram chats:', err);
@@ -44,7 +43,10 @@
 
 //       <select
 //         value={selectedChatId || ''}
-//         onChange={(e) => onSelectChat(e.target.value)}
+//         onChange={(e) => {
+//           console.log('Selected Telegram Chat ID:', e.target.value); // 👈 Debug log to verify selection
+//           onSelectChat(e.target.value);
+//         }}
 //         className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs outline-none focus:border-yellow-500 font-medium text-[#022036] bg-slate-50 shadow-2xs cursor-pointer"
 //       >
 //         <option value="">-- Don't send Telegram receipt --</option>
@@ -54,6 +56,7 @@
 //           </option>
 //         ))}
 //       </select>
+      
 //       <p className="text-[9px] text-slate-400">
 //         {chats.length === 0 
 //           ? "⚠️ No chats found yet. Send a message to @meretpos_bot first!" 
@@ -63,7 +66,7 @@
 //   );
 // }
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../api/axiosConfig'; // 👈 Use your preconfigured Axios instance
 import { Send } from 'lucide-react';
 
 export default function TelegramReceiptSelector({ selectedChatId, onSelectChat }) {
@@ -73,8 +76,8 @@ export default function TelegramReceiptSelector({ selectedChatId, onSelectChat }
   const fetchRecentChats = async () => {
     try {
       setLoading(true);
-      // Direct call to port 5000 to fetch active chat sessions
-      const res = await axios.get('http://localhost:5000/api/telegram/recent-chats');
+      // Uses the base URL configured in axiosConfig.js (automatically handles production vs development)
+      const res = await apiClient.get('/telegram/recent-chats');
       setChats(res.data.chats || []);
     } catch (err) {
       console.error('Failed to fetch Telegram chats:', err);
@@ -107,7 +110,7 @@ export default function TelegramReceiptSelector({ selectedChatId, onSelectChat }
       <select
         value={selectedChatId || ''}
         onChange={(e) => {
-          console.log('Selected Telegram Chat ID:', e.target.value); // 👈 Debug log to verify selection
+          console.log('Selected Telegram Chat ID:', e.target.value);
           onSelectChat(e.target.value);
         }}
         className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs outline-none focus:border-yellow-500 font-medium text-[#022036] bg-slate-50 shadow-2xs cursor-pointer"
