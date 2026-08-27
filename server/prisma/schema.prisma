@@ -65,15 +65,16 @@ model CreditLedger {
 }
 
 model Customer {
-  id            String         @id @default(uuid())
-  fullName      String
-  phone         String         @unique
-  totalCredit   Decimal        @default(0.00) @db.Decimal(12, 2)
-  loyaltyPoints Int            @default(0)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @default(now()) @updatedAt
-  creditLogs    CreditLedger[]
-  sales         Sale[]
+  id              String         @id @default(uuid())
+  fullName        String
+  phone           String         @unique
+  totalCredit     Decimal        @default(0.00) @db.Decimal(12, 2)
+  loyaltyPoints   Int            @default(0)
+  telegramChatId  String?        @unique // 👈 Safely added for auto-linking Telegram receipts
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @default(now()) @updatedAt
+  creditLogs      CreditLedger[]
+  sales           Sale[]
 }
 
 model Sale {

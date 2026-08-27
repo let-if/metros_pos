@@ -1,10 +1,16 @@
 
+
 // import { useState, useEffect } from 'react';
 // import { apiClient } from '../../api/axiosConfig';
 // import { useNavigate } from 'react-router-dom';
 // import { toast } from 'sonner';
 // import { ShoppingCart, Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, CheckCircle, Loader2, Receipt, History, Printer, X, Camera, Edit3, AlertTriangle, Award, Sparkles, Building2 } from 'lucide-react';
 // import BarcodeScannerModal from '../../components/pos/BarcodeScannerModal';
+// // If it's located at client/src/components/TelegramReceiptSelector.jsx:
+// import TelegramReceiptSelector from '../../components/TelegramReceiptSelector';
+
+// // OR if it's located at client/src/components/pos/TelegramReceiptSelector.jsx:
+
 
 // export default function PosPage() {
 //   const navigate = useNavigate();
@@ -12,7 +18,7 @@
 //   const [cart, setCart] = useState([]);
 //   const [loading, setLoading] = useState(true);
 //   const [searchQuery, setSearchQuery] = useState('');
-  
+
 //   // Branch Context State
 //   const [branches, setBranches] = useState([]);
 //   const [activeBranchId, setActiveBranchId] = useState('');
@@ -23,7 +29,8 @@
 //   const [paymentMethod, setPaymentMethod] = useState('CASH');
 //   const [customerName, setCustomerName] = useState('');
 //   const [customerPhone, setCustomerPhone] = useState('');
-  
+//   const [telegramChatId, setTelegramChatId] = useState(''); // 👈 Telegram Chat ID state
+
 //   // Loyalty Points State
 //   const [customerLoyaltyPoints, setCustomerLoyaltyPoints] = useState(0);
 //   const [redeemLoyalty, setRedeemLoyalty] = useState(false);
@@ -59,7 +66,6 @@
 //       const branchList = res.data.data || [];
 //       setBranches(branchList);
 
-//       // Determine cashier's assigned branch or fallback to first available branch/warehouse
 //       const assignedId = currentUser.branchId;
 //       const matchedBranch = branchList.find(b => b.id === assignedId) || branchList[0];
 
@@ -76,21 +82,19 @@
 //   const fetchProducts = async (branchId) => {
 //     try {
 //       setLoading(true);
-//       // If a branch is selected, fetch branch inventory items or merge them
 //       const res = await apiClient.get('/products');
 //       const baseProducts = res.data.data || [];
 
-//       // If it's a regular store branch, fetch branch specific inventory counts if available
 //       if (branchId) {
 //         const invRes = await apiClient.get(`/branches/${branchId}/inventory`).catch(() => null);
 //         const branchInventories = invRes?.data?.data || [];
-        
+
 //         if (branchInventories.length > 0) {
 //           const mappedProducts = baseProducts.map(p => {
 //             const foundInv = branchInventories.find(inv => inv.productId === p.id);
 //             return {
 //               ...p,
-//               stockQty: foundInv ? foundInv.stockQty : 0 // Branch specific stock
+//               stockQty: foundInv ? foundInv.stockQty : 0
 //             };
 //           });
 //           setProducts(mappedProducts);
@@ -124,7 +128,7 @@
 //   useEffect(() => {
 //     if (activeBranchId) {
 //       fetchProducts(activeBranchId);
-//       setCart([]); // Reset cart to an empty array
+//       setCart([]); 
 //     }
 //   }, [activeBranchId]);
 
@@ -247,18 +251,19 @@
 //         items: cart.map(item => ({ 
 //           productId: item.productId, 
 //           quantity: item.quantity,
-//           unitPrice: item.unitPrice // 👈 Passes the custom overridden price to the backend
+//           unitPrice: item.unitPrice 
 //         })),
 //         paymentMethod,
 //         customerName: customerName || (paymentMethod === 'CREDIT' ? 'Credit Customer' : 'Walk-in Customer'),
 //         customerPhone: customerPhone || null,
 //         redeemPoints: redeemLoyalty,
-//         branchId: activeBranchId 
+//         branchId: activeBranchId,
+//         telegramChatId: telegramChatId || null // 👈 Pass selected Telegram Chat ID to backend
 //       };
 
 //       const res = await apiClient.post('/sales', payload);
-//       toast.success('Sale completed with overridden price and branch inventory updated!');
-      
+//       toast.success('Sale completed! Digital receipt queued for Telegram.');
+
 //       const savedSale = res.data.data;
 //       setCompletedSale(savedSale);
 
@@ -266,6 +271,7 @@
 //       setIsCheckoutOpen(false);
 //       setCustomerName('');
 //       setCustomerPhone('');
+//       setTelegramChatId(''); // Reset Telegram selection
 //       setCustomerLoyaltyPoints(0);
 //       setRedeemLoyalty(false);
 //       fetchProducts(activeBranchId); 
@@ -284,8 +290,7 @@
 
 //   return (
 //     <div className="space-y-6 pb-10">
-      
-//       {/* Branded Header Banner Matching Other Pages */}
+//       {/* Header Banner */}
 //       <div className="bg-[#022036] rounded-3xl border border-yellow-500/30 p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-white relative overflow-hidden">
 //         <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-yellow-500/15 rounded-full blur-2xl pointer-events-none" />
 
@@ -298,7 +303,6 @@
 //         </div>
 
 //         <div className="relative z-10 flex flex-wrap items-center gap-3">
-//           {/* Branch Selector Dropdown */}
 //           <div className="flex items-center gap-2 bg-white/10 px-3.5 py-2 rounded-xl border border-white/20 backdrop-blur-md">
 //             <Building2 className="h-4 w-4 text-yellow-400 shrink-0" />
 //             <select
@@ -347,7 +351,7 @@
 //                     <p className="text-[10px] text-slate-500">Branch: <span className="font-semibold text-slate-700">{sale.branch?.name || 'General'}</span></p>
 //                     <p className="text-[10px] text-slate-400">{new Date(sale.createdAt).toLocaleTimeString()}</p>
 //                   </div>
-                  
+
 //                   <div className="flex gap-2 mt-4">
 //                     <button
 //                       onClick={() => setCompletedSale(sale)}
@@ -368,7 +372,6 @@
 //                           ? 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200 cursor-pointer shadow-2xs' 
 //                           : 'bg-slate-100 text-slate-400 border-slate-200 opacity-50 cursor-not-allowed'
 //                       }`}
-//                       title={canRefund ? "Refund / Return Sale" : "Locked: Requires Refund Permission"}
 //                     >
 //                       Refund
 //                     </button>
@@ -382,8 +385,7 @@
 
 //       {/* Main Split Screen */}
 //       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-14rem)]">
-        
-//         {/* LEFT: Product Catalog Selection Grid (7 Cols) */}
+//         {/* LEFT: Product Catalog */}
 //         <div className="lg:col-span-7 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
 //           <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex items-center gap-3">
 //             <div className="relative flex-1">
@@ -441,13 +443,8 @@
 //                         <span className="font-mono font-extrabold text-emerald-700 text-xs">
 //                           {Number(p.unitPrice).toFixed(2)} ETB
 //                         </span>
-                        
 //                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs ${
-//                           isOutOfStock 
-//                             ? 'bg-red-100 text-red-700' 
-//                             : isLowStock 
-//                             ? 'bg-amber-100 text-amber-800 animate-pulse' 
-//                             : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+//                           isOutOfStock ? 'bg-red-100 text-red-700' : isLowStock ? 'bg-amber-100 text-amber-800 animate-pulse' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
 //                         }`}>
 //                           {isLowStock && <AlertTriangle className="h-2.5 w-2.5" />}
 //                           {p.stockQty} left
@@ -461,7 +458,7 @@
 //           </div>
 //         </div>
 
-//         {/* RIGHT: Active Cart & Checkout Panel (5 Cols) */}
+//         {/* RIGHT: Active Cart */}
 //         <div className="lg:col-span-5 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
 //           <div className="bg-[#022036] text-white p-4 flex items-center justify-between border-b border-yellow-500/30 shadow-sm">
 //             <div className="flex items-center gap-2">
@@ -491,11 +488,8 @@
 //                         type="button"
 //                         onClick={() => handleOpenPriceOverrideModal(item)}
 //                         className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-0.5 rounded-full border transition-all ${
-//                           canOverridePrice 
-//                             ? 'bg-[#022036] text-yellow-400 hover:bg-[#032a45] border-yellow-400/40 cursor-pointer shadow-2xs' 
-//                             : 'bg-slate-100 text-slate-400 border-slate-200 opacity-50 cursor-not-allowed'
+//                           canOverridePrice ? 'bg-[#022036] text-yellow-400 hover:bg-[#032a45] border-yellow-400/40 cursor-pointer shadow-2xs' : 'bg-slate-100 text-slate-400 border-slate-200 opacity-50 cursor-not-allowed'
 //                         }`}
-//                         title={canOverridePrice ? "Override item price" : "Locked: Requires Price Override Permission"}
 //                       >
 //                         <Edit3 className="h-2.5 w-2.5" /> Edit Price
 //                       </button>
@@ -539,10 +533,9 @@
 //             </button>
 //           </div>
 //         </div>
-
 //       </div>
 
-//       {/* Barcode Scanner Camera Modal */}
+//       {/* Barcode Scanner Modal */}
 //       {isScannerOpen && (
 //         <BarcodeScannerModal
 //           onClose={() => setIsScannerOpen(false)}
@@ -550,7 +543,7 @@
 //         />
 //       )}
 
-//       {/* Custom Branded Price Override Modal */}
+//       {/* Price Override Modal */}
 //       {overrideTargetItem && (
 //         <div className="fixed inset-0 z-50 bg-[#022036]/70 backdrop-blur-xs flex items-center justify-center p-4">
 //           <div className="bg-white rounded-3xl max-w-sm w-full border border-yellow-500/30 shadow-2xl overflow-hidden p-6 space-y-4 animate-fadeIn">
@@ -558,12 +551,10 @@
 //               <h3 className="font-extrabold text-sm text-[#022036]">Override Item Price</h3>
 //               <button onClick={() => setOverrideTargetItem(null)} className="text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer">✕</button>
 //             </div>
-
 //             <div>
 //               <p className="text-xs font-bold text-slate-700">{overrideTargetItem.name}</p>
 //               <p className="text-[10px] text-slate-400 font-mono mt-0.5">Current Price: {Number(overrideTargetItem.unitPrice).toFixed(2)} ETB</p>
 //             </div>
-
 //             <form onSubmit={submitPriceOverride} className="space-y-3">
 //               <div>
 //                 <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">New Unit Price (ETB)</label>
@@ -572,38 +563,25 @@
 //                   step="0.01"
 //                   required
 //                   autoFocus
-//                   placeholder="Enter new price..."
 //                   value={customPriceInput}
 //                   onChange={(e) => setCustomPriceInput(e.target.value)}
 //                   className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs outline-none focus:border-yellow-500 font-mono font-bold text-[#022036]"
 //                 />
 //               </div>
-
 //               <div className="flex gap-2 pt-2">
-//                 <button
-//                   type="button"
-//                   onClick={() => setOverrideTargetItem(null)}
-//                   className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 transition-all cursor-pointer"
-//                 >
-//                   Cancel
-//                 </button>
-//                 <button
-//                   type="submit"
-//                   className="flex-1 py-2.5 rounded-xl bg-[#022036] text-yellow-400 font-bold text-xs hover:bg-[#032a45] transition-all cursor-pointer shadow-sm"
-//                 >
-//                   Apply Price
-//                 </button>
+//                 <button type="button" onClick={() => setOverrideTargetItem(null)} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs">Cancel</button>
+//                 <button type="submit" className="flex-1 py-2.5 rounded-xl bg-[#022036] text-yellow-400 font-bold text-xs">Apply Price</button>
 //               </div>
 //             </form>
 //           </div>
 //         </div>
 //       )}
 
-//       {/* Custom Branded Refund Confirmation Modal */}
+//       {/* Refund Modal */}
 //       {refundTargetId && (
 //         <div className="fixed inset-0 z-50 bg-[#022036]/70 backdrop-blur-xs flex items-center justify-center p-4">
 //           <div className="bg-white rounded-3xl max-w-sm w-full border border-yellow-500/30 shadow-2xl overflow-hidden p-6 space-y-4 text-center animate-fadeIn">
-//             <div className="h-12 w-12 rounded-full bg-red-50 text-red-600 border border-red-200 flex items-center justify-center mx-auto shadow-inner">
+//             <div className="h-12 w-12 rounded-full bg-red-50 text-red-600 border border-red-200 flex items-center justify-center mx-auto">
 //               <Trash2 className="h-6 w-6" />
 //             </div>
 //             <div>
@@ -611,17 +589,8 @@
 //               <p className="text-xs text-slate-500 mt-1">Are you sure you want to refund this sale? All sold items will be automatically returned to branch inventory stock.</p>
 //             </div>
 //             <div className="flex gap-2 pt-2">
-//               <button
-//                 onClick={() => setRefundTargetId(null)}
-//                 className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 transition-all cursor-pointer"
-//               >
-//                 Cancel
-//               </button>
-//               <button
-//                 onClick={confirmRefundSale}
-//                 disabled={isRefunding}
-//                 className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs hover:bg-red-700 transition-all cursor-pointer shadow-sm disabled:opacity-50 flex items-center justify-center gap-1.5"
-//               >
+//               <button onClick={() => setRefundTargetId(null)} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs">Cancel</button>
+//               <button onClick={confirmRefundSale} disabled={isRefunding} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-xs flex items-center justify-center gap-1.5">
 //                 {isRefunding ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : 'Yes, Refund'}
 //               </button>
 //             </div>
@@ -629,11 +598,11 @@
 //         </div>
 //       )}
 
-//       {/* Checkout Payment Modal with Loyalty Points Integration */}
+//       {/* Checkout Payment Modal with Telegram Receipt Selector */}
 //       {isCheckoutOpen && (
 //         <div className="fixed inset-0 z-50 bg-[#022036]/70 backdrop-blur-xs flex items-center justify-center p-4">
-//           <div className="bg-white rounded-3xl max-w-md w-full border border-yellow-500/30 shadow-2xl overflow-hidden animate-fadeIn">
-//             <div className="bg-[#022036] text-white p-5 flex items-center justify-between border-b border-yellow-500/30 shadow-sm">
+//           <div className="bg-white rounded-3xl max-w-md w-full border border-yellow-500/30 shadow-2xl overflow-hidden animate-fadeIn max-h-[90vh] overflow-y-auto">
+//             <div className="bg-[#022036] text-white p-5 flex items-center justify-between border-b border-yellow-500/30 shadow-sm sticky top-0 z-10">
 //               <h3 className="font-extrabold text-sm tracking-tight">Finalize POS Checkout</h3>
 //               <button onClick={() => setIsCheckoutOpen(false)} className="text-yellow-400 text-xs font-bold cursor-pointer">✕ Close</button>
 //             </div>
@@ -661,9 +630,7 @@
 //                         type="button"
 //                         onClick={() => setPaymentMethod(method.id)}
 //                         className={`flex flex-col items-center justify-center p-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
-//                           paymentMethod === method.id
-//                             ? 'bg-[#022036] text-yellow-400 border-[#022036] shadow-md'
-//                             : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+//                           paymentMethod === method.id ? 'bg-[#022036] text-yellow-400 border-[#022036] shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
 //                         }`}
 //                       >
 //                         <Icon className="h-4 w-4 mb-1" />
@@ -683,7 +650,7 @@
 //                   onChange={async (e) => {
 //                     const phone = e.target.value;
 //                     setCustomerPhone(phone);
-                    
+
 //                     if (phone.length >= 9) {
 //                       try {
 //                         const res = await apiClient.get(`/customers/lookup?phone=${phone}`);
@@ -718,6 +685,12 @@
 //                   className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs outline-none focus:border-yellow-500 shadow-2xs"
 //                 />
 //               </div>
+
+//               {/* 📱 Integrated Telegram Receipt Selector Component */}
+//               <TelegramReceiptSelector
+//                 selectedChatId={telegramChatId}
+//                 onSelectChat={(chatId) => setTelegramChatId(chatId)}
+//               />
 
 //               {customerLoyaltyPoints >= 100 && (
 //                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 space-y-2">
@@ -756,7 +729,6 @@
 //       {completedSale && (
 //         <div className="fixed inset-0 z-50 bg-[#022036]/70 backdrop-blur-xs flex items-center justify-center p-4">
 //           <div className="bg-white rounded-3xl max-w-sm w-full border border-yellow-500/30 shadow-2xl overflow-hidden flex flex-col animate-fadeIn">
-            
 //             <div className="bg-[#022036] text-white p-4 flex items-center justify-between no-print shadow-sm">
 //               <span className="font-bold text-xs flex items-center gap-1.5 text-yellow-400">
 //                 <Receipt className="h-4 w-4" /> ERCA Fiscal Receipt Generated
@@ -764,7 +736,6 @@
 //               <button onClick={() => setCompletedSale(null)} className="text-yellow-400 text-xs font-bold cursor-pointer">✕</button>
 //             </div>
 
-//             {/* Thermal Receipt Paper Layout */}
 //             <div id="thermal-receipt-print-area" className="p-6 font-mono text-xs space-y-3 bg-white text-slate-900 m-4 rounded-2xl border border-dashed border-slate-300 shadow-2xs">
 //               {(() => {
 //                 const config = JSON.parse(localStorage.getItem('meret_store_config') || '{"storeName": "MeretPOS Retail Shop", "tinNumber": "0012345678", "vatNo": "VAT-987654321", "storeLocation": "Bole Road, Addis Ababa"}');
@@ -800,7 +771,6 @@
 //                 </div>
 //               </div>
 
-//               {/* ERCA Regulatory QR Code Simulation Element */}
 //               <div className="text-center pt-3 border-t border-dashed border-slate-300 space-y-1.5">
 //                 <div className="inline-block p-2 bg-white rounded-xl border border-slate-200">
 //                   <div className="h-14 w-14 bg-slate-900 mx-auto flex items-center justify-center text-white text-[9px] font-mono rounded">
@@ -813,39 +783,26 @@
 //             </div>
 
 //             <div className="p-4 bg-white border-t border-slate-100 flex gap-2.5 no-print">
-//               <button
-//                 onClick={() => window.print()}
-//                 className="flex-1 py-3 rounded-xl bg-slate-100 text-[#022036] font-bold text-xs hover:bg-slate-200 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-//               >
+//               <button onClick={() => window.print()} className="flex-1 py-3 rounded-xl bg-slate-100 text-[#022036] font-bold text-xs hover:bg-slate-200 transition-all cursor-pointer flex items-center justify-center gap-1.5">
 //                 <Printer className="h-4 w-4 text-yellow-600" /> Print Thermal Roll
 //               </button>
-//               <button
-//                 onClick={() => setCompletedSale(null)}
-//                 className="flex-1 py-3 rounded-xl bg-[#022036] text-yellow-400 font-extrabold text-xs hover:bg-[#032a45] transition-all cursor-pointer shadow-sm"
-//               >
+//               <button onClick={() => setCompletedSale(null)} className="flex-1 py-3 rounded-xl bg-[#022036] text-yellow-400 font-extrabold text-xs hover:bg-[#032a45]">
 //                 New Sale
 //               </button>
 //             </div>
-
 //           </div>
 //         </div>
 //       )}
-
 //     </div>
 //   );
 // }
-
 import { useState, useEffect } from 'react';
 import { apiClient } from '../../api/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ShoppingCart, Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, CheckCircle, Loader2, Receipt, History, Printer, X, Camera, Edit3, AlertTriangle, Award, Sparkles, Building2 } from 'lucide-react';
 import BarcodeScannerModal from '../../components/pos/BarcodeScannerModal';
-// If it's located at client/src/components/TelegramReceiptSelector.jsx:
 import TelegramReceiptSelector from '../../components/TelegramReceiptSelector';
-
-// OR if it's located at client/src/components/pos/TelegramReceiptSelector.jsx:
-
 
 export default function PosPage() {
   const navigate = useNavigate();
@@ -1093,7 +1050,7 @@ export default function PosPage() {
         customerPhone: customerPhone || null,
         redeemPoints: redeemLoyalty,
         branchId: activeBranchId,
-        telegramChatId: telegramChatId || null // 👈 Pass selected Telegram Chat ID to backend
+        telegramChatId: telegramChatId || null // Pass selected Telegram Chat ID to backend
       };
 
       const res = await apiClient.post('/sales', payload);
@@ -1477,7 +1434,7 @@ export default function PosPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">Customer Phone (For Loyalty Points)</label>
+                <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">Customer Phone (For Loyalty & Telegram Auto-Link)</label>
                 <input
                   type="text"
                   placeholder="e.g. 0911223344"
@@ -1489,10 +1446,19 @@ export default function PosPage() {
                     if (phone.length >= 9) {
                       try {
                         const res = await apiClient.get(`/customers/lookup?phone=${phone}`);
-                        if (res.data.data) {
-                          const pts = res.data.data.loyaltyPoints || 0;
-                          setCustomerName(res.data.data.fullName || '');
+                        if (res.data && res.data.data) {
+                          const customer = res.data.data;
+                          const pts = customer.loyaltyPoints || 0;
+                          
+                          setCustomerName(customer.fullName || '');
                           setCustomerLoyaltyPoints(pts);
+
+                          // 🚀 AUTO-LINK TELEGRAM RECEIPT IF LINKED IN DB
+                          if (customer.telegramChatId) {
+                            setTelegramChatId(customer.telegramChatId);
+                            toast.success(`🔗 Auto-linked to Telegram: ${customer.fullName}`);
+                          }
+
                           if (pts >= 100) {
                             toast.success(`🎉 VIP Customer Unlocked! ${pts} Loyalty Points available.`);
                           }

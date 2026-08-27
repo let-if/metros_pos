@@ -1,9 +1,63 @@
 
+// const express = require('express');
+// const router = express.Router();
+// const axios = require('axios');
+
+// // In-memory storage for recent active users chatting with the bot
+// let recentChatSessions = [];
+
+// // Webhook endpoint where Telegram pushes messages sent by customers
+// router.post('/webhook', (req, res) => {
+//   try {
+//     console.log('🔔 WEBHOOK HIT! Incoming Telegram payload:', JSON.stringify(req.body, null, 2));
+
+//     const message = req.body?.message || req.body?.edited_message;
+//     if (message && message.chat) {
+//       const chatId = message.chat.id;
+//       const username = message.chat.first_name || message.chat.username || 'Customer';
+//       const text = message.text || '';
+
+//       console.log(`✅ Processed message from ${username} (${chatId}): "${text}"`);
+
+//       // Prevent duplicates and keep last 10 chats
+//       recentChatSessions = recentChatSessions.filter(s => s.chatId !== chatId);
+//       recentChatSessions.unshift({
+//         chatId,
+//         name: username,
+//         lastMessage: text,
+//         time: new Date().toLocaleTimeString()
+//       });
+
+//       if (recentChatSessions.length > 10) recentChatSessions.pop();
+//     } else {
+//       console.log('⚠️ Webhook hit, but no valid message structure found.');
+//     }
+//   } catch (err) {
+//     console.error('❌ Error inside webhook handler:', err.message);
+//   }
+
+//   return res.status(200).send('OK');
+// });
+
+// // Endpoint for your frontend to fetch active chat sessions
+// router.get('/recent-chats', (req, res) => {
+//   try {
+//     return res.json({ success: true, chats: recentChatSessions });
+//   } catch (err) {
+//     console.error('❌ Error fetching recent chats:', err.message);
+//     return res.status(500).json({ success: false, chats: [] });
+//   }
+// });
+
+// // 🔍 DIAGNOSTIC ENHANCED FUNCTION
 // const sendTelegramReceipt = async (chatId, receiptData) => {
+//   console.log('🔍 [DIAGNOSTIC] sendTelegramReceipt called with Chat ID:', chatId);
+//   console.log('🔍 [DIAGNOSTIC] Receipt Data payload received:', JSON.stringify(receiptData, null, 2));
+
 //   try {
 //     const token = process.env.TELEGRAM_BOT_TOKEN || '8817690392:AAF6EiMSiF3uvG1dkNC6W2wngBqqM32YugE';
 //     if (!token || !chatId) {
-//       console.error('❌ Missing Telegram token or chatId');
+//       console.error('❌ [DIAGNOSTIC] Missing Telegram token or chatId!', { token: !!token, chatId });
 //       return;
 //     }
 
@@ -31,7 +85,7 @@
 // Thank you for your business! 🎉
 //     `.trim();
 
-//     console.log(`📤 Dispatching receipt to Telegram chat ID: ${chatId}...`);
+//     console.log(`📤 [DIAGNOSTIC] Attempting fetch to Telegram API for chat ID: ${chatId}`);
 
 //     const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
 //       method: 'POST',
@@ -46,24 +100,26 @@
 //     const data = await response.json();
     
 //     if (data.ok) {
-//       console.log('🚀 Telegram receipt successfully sent to chat:', chatId);
+//       console.log('🚀 [DIAGNOSTIC] SUCCESS! Telegram receipt sent to chat:', chatId);
 //     } else {
-//       console.error('❌ Telegram API returned an error:', data);
+//       console.error('❌ [DIAGNOSTIC] Telegram API REJECTED the request. Response:', data);
 //     }
 //   } catch (error) {
-//     console.error('❌ Native fetch Telegram send error:', error.message);
+//     console.error('❌ [DIAGNOSTIC] NETWORK/FETCH EXCEPTION caught:', error.message);
 //   }
 // };
+
 // module.exports = { router, sendTelegramReceipt };
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const prisma = require('../config/db'); // 👈 Import Prisma for database mapping
 
 // In-memory storage for recent active users chatting with the bot
 let recentChatSessions = [];
 
 // Webhook endpoint where Telegram pushes messages sent by customers
-router.post('/webhook', (req, res) => {
+router.post('/webhook', async (req, res) => {
   try {
     console.log('🔔 WEBHOOK HIT! Incoming Telegram payload:', JSON.stringify(req.body, null, 2));
 
@@ -72,15 +128,63 @@ router.post('/webhook', (req, res) => {
       const chatId = message.chat.id;
       const username = message.chat.first_name || message.chat.username || 'Customer';
       const text = message.text || '';
+      const contact = message.contact; // 👈 Check if user shared their contact button
+      const token = process.env.TELEGRAM_BOT_TOKEN || '8817690392:AAF6EiMSiF3uvG1dkNC6W2wngBqqM32YugE';
 
       console.log(`✅ Processed message from ${username} (${chatId}): "${text}"`);
 
-      // Prevent duplicates and keep last 10 chats
+      // 1. Handle contact sharing to auto-link phone number with Neon Postgres
+      if (contact && contact.phone_number) {
+        let phoneNumber = contact.phone_number;
+        // Clean up phone number format if needed (e.g., handling leading + signs)
+        console.log(`📱 Received phone number from ${username}: ${phoneNumber}`);
+
+        try {
+          // Upsert customer in Neon Postgres linking their Telegram chatId
+          await prisma.customer.upsert({
+            where: { phone: phoneNumber },
+            update: { telegramChatId: String(chatId) },
+            create: {
+              fullName: username,
+              phone: phoneNumber,
+              telegramChatId: String(chatId)
+            }
+          });
+
+          // Send confirmation back to Telegram
+          await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+            chat_id: chatId,
+            text: "✅ Success! Your phone number is now linked to your MeretPOS account. Future receipts will arrive here automatically!"
+          });
+        } catch (dbErr) {
+          console.error('❌ Failed to link phone in Neon DB:', dbErr.message);
+        }
+      } 
+      // 2. Prompt user to share contact when they start a chat
+      else if (text === '/start' || text.toLowerCase() === 'hi' || text.toLowerCase() === 'hello') {
+        try {
+          await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+            chat_id: chatId,
+            text: `Welcome to MeretPOS, ${username}! Tap the button below to link your phone number for instant digital receipts:`,
+            reply_markup: {
+              keyboard: [
+                [{ text: "📱 Share My Phone Number", request_contact: true }]
+              ],
+              resize_keyboard: true,
+              one_time_keyboard: true
+            }
+          });
+        } catch (tgErr) {
+          console.error('❌ Failed to send contact request prompt:', tgErr.message);
+        }
+      }
+
+      // Prevent duplicates and keep last 10 chats in-memory (for manual dropdown fallback)
       recentChatSessions = recentChatSessions.filter(s => s.chatId !== chatId);
       recentChatSessions.unshift({
         chatId,
         name: username,
-        lastMessage: text,
+        lastMessage: contact ? 'Shared Contact Number' : text,
         time: new Date().toLocaleTimeString()
       });
 
