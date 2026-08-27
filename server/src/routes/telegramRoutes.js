@@ -136,7 +136,6 @@ router.post('/webhook', async (req, res) => {
       // 1. Handle contact sharing to auto-link phone number with Neon Postgres
       if (contact && contact.phone_number) {
         let phoneNumber = contact.phone_number;
-        // Clean up phone number format if needed (e.g., handling leading + signs)
         console.log(`📱 Received phone number from ${username}: ${phoneNumber}`);
 
         try {
@@ -151,27 +150,35 @@ router.post('/webhook', async (req, res) => {
             }
           });
 
-          // Send confirmation back to Telegram
+          // Send confirmation back to Telegram and remove the keyboard
           await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
             chat_id: chatId,
-            text: "✅ Success! Your phone number is now linked to your MeretPOS account. Future receipts will arrive here automatically!"
+            text: "✅ Success! Your phone number is now linked to your MeretPOS account. Future receipts will arrive here automatically!",
+            reply_markup: {
+              remove_keyboard: true
+            }
           });
         } catch (dbErr) {
           console.error('❌ Failed to link phone in Neon DB:', dbErr.message);
         }
       } 
-      // 2. Prompt user to share contact when they start a chat
-      else if (text === '/start' || text.toLowerCase() === 'hi' || text.toLowerCase() === 'hello') {
+      // 2. ALWAYS send the contact sharing button on /start, /phone, or any normal text message to ensure it appears
+      else {
         try {
+          const isCommand = text.startsWith('/');
+          const welcomeText = isCommand || text.toLowerCase() === 'hi' || text.toLowerCase() === 'hello'
+            ? `Welcome to MeretPOS, ${username}! Tap the button below to link your phone number for instant digital receipts:`
+            : `Thanks for messaging MeretPOS! Please tap the button below to link your phone number:`;
+
           await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
             chat_id: chatId,
-            text: `Welcome to MeretPOS, ${username}! Tap the button below to link your phone number for instant digital receipts:`,
+            text: welcomeText,
             reply_markup: {
               keyboard: [
                 [{ text: "📱 Share My Phone Number", request_contact: true }]
               ],
               resize_keyboard: true,
-              one_time_keyboard: true
+              one_time_keyboard: false
             }
           });
         } catch (tgErr) {
