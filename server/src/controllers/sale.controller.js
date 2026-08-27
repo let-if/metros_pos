@@ -1,7 +1,7 @@
 
 // const prisma = require('../config/db');
 
-// // Process a POS sale transaction with Branch-Specific Inventory Tracking
+// // Process a POS sale transaction with Branch-Specific Inventory Tracking & Price Overrides
 // const createSale = async (req, res) => {
 //   try {
 //     const { items, paymentMethod, customerName, customerPhone, terminalId, redeemPoints, branchId } = req.body;
@@ -13,7 +13,6 @@
 //     const currentTerminal = terminalId || 'POS-1';
 
 //     // 0. Determine the active branch for this sale:
-//     // Priority: 1. Passed in request body -> 2. Cashier's assigned user branch -> 3. Fallback to Central Warehouse/First branch
 //     let targetBranchId = branchId;
 //     if (!targetBranchId) {
 //       const cashierUser = await prisma.user.findUnique({
@@ -24,7 +23,6 @@
 //     }
 
 //     if (!targetBranchId) {
-//       // Fallback to Central Warehouse if no branch is explicitly assigned
 //       let centralWarehouse = await prisma.branch.findFirst({ where: { isWarehouse: true } });
 //       if (!centralWarehouse) {
 //         centralWarehouse = await prisma.branch.findFirst();
@@ -50,7 +48,7 @@
 //     const orderItemsData = [];
 //     const stockVerificationMap = [];
 
-//     // 1. Verify stock availability in the specific branch inventory (or master product stock if it's a warehouse)
+//     // 1. Verify stock availability and handle custom unit price overrides
 //     for (const item of items) {
 //       const product = await prisma.product.findUnique({ where: { id: item.productId } });
 //       if (!product) {
@@ -76,13 +74,15 @@
 //         });
 //       }
 
-//       const lineTotal = Number(product.unitPrice) * item.quantity;
+//       // 👈 Respect overridden unitPrice from cart item payload if present, otherwise fallback to product.unitPrice
+//       const effectiveUnitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : Number(product.unitPrice);
+//       const lineTotal = effectiveUnitPrice * item.quantity;
 //       subTotalAmount += lineTotal;
 
 //       orderItemsData.push({
 //         productId: product.id,
 //         quantity: item.quantity,
-//         unitPrice: product.unitPrice,
+//         unitPrice: effectiveUnitPrice, // 👈 Saves overridden price to the database
 //         totalPrice: lineTotal
 //       });
 
@@ -135,7 +135,7 @@
 //           customerId: customerRecordId,
 //           terminalId: currentTerminal,
 //           shiftId: activeShift ? activeShift.id : null,
-//           branchId: targetBranchId, // 👈 Linked to branch for regional financial reports
+//           branchId: targetBranchId, 
 //           items: { create: orderItemsData }
 //         },
 //         include: { items: { include: { product: true } }, cashier: { select: { fullName: true } }, customer: true, branch: true }
@@ -155,7 +155,6 @@
 //               data: { stockQty: { decrement: stockItem.quantity } }
 //             });
 //           } else {
-//             // Edge case fallback: create inventory row with negative or zero logic if missing
 //             await tx.inventory.create({
 //               data: {
 //                 productId: stockItem.productId,
@@ -296,11 +295,12 @@
 //   refundSale 
 // };
 const prisma = require('../config/db');
+const { sendTelegramReceipt } = require('../routes/telegramRoutes');
 
-// Process a POS sale transaction with Branch-Specific Inventory Tracking & Price Overrides
+// Process a POS sale transaction with Branch-Specific Inventory Tracking & Telegram Receipt Dispatch
 const createSale = async (req, res) => {
   try {
-    const { items, paymentMethod, customerName, customerPhone, terminalId, redeemPoints, branchId } = req.body;
+    const { items, paymentMethod, customerName, customerPhone, terminalId, redeemPoints, branchId, telegramChatId } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ status: 'error', message: 'Cart is empty' });
@@ -335,7 +335,7 @@ const createSale = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Assigned branch location not found.' });
     }
 
-    // 0. Find the active open shift for this cashier on this specific terminal
+    // Find the active open shift for this cashier on this specific terminal
     const activeShift = await prisma.shift.findFirst({
       where: { userId: req.user.userId, status: 'OPEN', terminalId: currentTerminal }
     });
@@ -370,7 +370,6 @@ const createSale = async (req, res) => {
         });
       }
 
-      // 👈 Respect overridden unitPrice from cart item payload if present, otherwise fallback to product.unitPrice
       const effectiveUnitPrice = item.unitPrice !== undefined ? Number(item.unitPrice) : Number(product.unitPrice);
       const lineTotal = effectiveUnitPrice * item.quantity;
       subTotalAmount += lineTotal;
@@ -378,7 +377,7 @@ const createSale = async (req, res) => {
       orderItemsData.push({
         productId: product.id,
         quantity: item.quantity,
-        unitPrice: effectiveUnitPrice, // 👈 Saves overridden price to the database
+        unitPrice: effectiveUnitPrice,
         totalPrice: lineTotal
       });
 
@@ -437,7 +436,7 @@ const createSale = async (req, res) => {
         include: { items: { include: { product: true } }, cashier: { select: { fullName: true } }, customer: true, branch: true }
       });
 
-      // Decrement stock quantities from the specific branch inventory (or master product if warehouse)
+      // Decrement stock quantities
       for (const stockItem of stockVerificationMap) {
         if (stockItem.isWarehouse) {
           await tx.product.update({
@@ -462,7 +461,7 @@ const createSale = async (req, res) => {
         }
       }
 
-      // Update customer loyalty points if a customer profile is attached
+      // Update customer loyalty points
       if (customerRecordId) {
         const netPointChange = earnedPoints - pointsToDeduct;
         await tx.customer.update({
@@ -471,7 +470,7 @@ const createSale = async (req, res) => {
         });
       }
 
-      // Handle Credit / Yeketena payments
+      // Handle Credit payments
       if (paymentMethod === 'CREDIT' && customerRecordId) {
         await tx.creditLedger.create({
           data: {
@@ -491,6 +490,25 @@ const createSale = async (req, res) => {
 
       return sale;
     });
+
+    // 📱 DEBUG & TELEGRAM RECEIPT DISPATCH
+    console.log('----------------------------------------------------');
+    console.log('🔍 CHECKOUT DEBUG - Received telegramChatId:', telegramChatId, typeof telegramChatId);
+    console.log('----------------------------------------------------');
+
+    const cleanChatId = telegramChatId ? telegramChatId.toString().trim() : '';
+
+    if (cleanChatId !== '') {
+      console.log('🚀 TRIGGERING sendTelegramReceipt for chat ID:', cleanChatId);
+      sendTelegramReceipt(cleanChatId, {
+        orderId: result.receiptNo,
+        items: result.items,
+        total: result.grandTotal,
+        paymentMethod: result.paymentMethod
+      }).catch(err => console.error('❌ Background Telegram send failed:', err));
+    } else {
+      console.log('⚠️ SKIPPED: telegramChatId was empty, null, or undefined!');
+    }
 
     res.status(201).json({
       status: 'success',
@@ -523,7 +541,7 @@ const getSalesHistory = async (req, res) => {
   }
 };
 
-// Secure Refund Transaction with branch-specific inventory restocking
+// Secure Refund Transaction
 const refundSale = async (req, res) => {
   try {
     const { saleId } = req.params;
@@ -547,7 +565,6 @@ const refundSale = async (req, res) => {
     const saleBranchId = sale.branchId;
     const isWarehouseSale = sale.branch?.isWarehouse || false;
 
-    // Execute refund transaction to restock correct branch inventory
     await prisma.$transaction(async (tx) => {
       for (const item of sale.items) {
         if (isWarehouseSale) {

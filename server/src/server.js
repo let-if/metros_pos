@@ -17,6 +17,10 @@ const customerRoutes = require('./routes/customer.routes');
 // Import the transfer routes
 const transferRoutes = require('./routes/transfer.routes');
 const branchRoutes = require('./routes/branch.routes');
+const { router: telegramRouter } = require('./routes/telegramRoutes');
+
+// Mount it under /api/telegram
+
 // Mount the route under /api/transfers
 
 // Middleware
@@ -33,6 +37,11 @@ app.use('/api/users', userRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/branches', branchRoutes);
+// Change this line:
+// app.use('/telegram', telegramRouter);
+
+// To this:
+app.use('/api/telegram', telegramRouter);
 // Health Check Route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 
